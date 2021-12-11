@@ -66,7 +66,7 @@ namespace MongoDBGridFS
             }
             else
             {
-                Console.WriteLine("Cannot ginf file: '" + FileName + "'");
+                Console.WriteLine("Cannot find file: '" + FileName + "'");
             }
         }
 
@@ -87,7 +87,7 @@ namespace MongoDBGridFS
             }
             else
             {
-                Console.WriteLine("Cannot ginf file: '" + FileName + "'");
+                Console.WriteLine("Cannot find file: '" + FileName + "'");
             }
         }
 
@@ -99,11 +99,17 @@ namespace MongoDBGridFS
 
             var searchResult = await _gridFSBucket.FindAsync(filter);
             var fileEntry = searchResult.FirstOrDefault();
-
-            var file = DownloadPath + "/" + fileEntry.Filename;
-            using Stream fs = new FileStream(file, FileMode.CreateNew, FileAccess.Write);
-            await _gridFSBucket.DownloadToStreamAsync(Id, fs);
-            fs.Close();
+            if (fileEntry != null)
+            {
+                var file = DownloadPath + "/" + fileEntry.Filename;
+                using Stream fs = new FileStream(file, FileMode.CreateNew, FileAccess.Write);
+                await _gridFSBucket.DownloadToStreamAsync(Id, fs);
+                fs.Close();
+            }
+            else
+            {
+                Console.WriteLine("Cannot find file with Id: '" + Id.ToString() + "'");
+            }
         }
 
         static void Main(string[] args)

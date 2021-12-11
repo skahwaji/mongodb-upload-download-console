@@ -13,15 +13,15 @@ namespace MongoDBGridFS
         private static MongoClient _mongoClient = null;
         private static IMongoDatabase _database = null;
         private static GridFSBucket _gridFSBucket = null;
-        private static string FilePathToUpload = "./upload/FacadePattern.pdf";
-        private static string DownloadPath = "./download";
-        private static string FileName = "FacadePattern.pdf";
 
-        public static void UploadFile()
+        private static string UplodaPath = "./upload";
+        private static string DownloadPath = "./download";
+
+        public static void UploadFileFromBytes(string FileName)
 
         {
             Console.WriteLine("Read the file into a byte source");
-            byte[] source = File.ReadAllBytes(FilePathToUpload);
+            byte[] source = File.ReadAllBytes(UplodaPath + "/" + FileName);
 
             Console.WriteLine("Upload the byte source to gridFS collection");
             ObjectId id = _gridFSBucket.UploadFromBytes(FileName, source);
@@ -29,11 +29,11 @@ namespace MongoDBGridFS
             Console.WriteLine("Uploaded file Id: " + id.ToString());
         }
 
-        public static void UploadFileFromStream()
+        public static void UploadFileFromStream(string FileName)
 
         {
             Console.WriteLine("Read the file into a stream");
-            Stream stream = File.Open(FilePathToUpload, FileMode.Open);
+            Stream stream = File.Open(UplodaPath + "/" + FileName, FileMode.Open);
 
             Console.WriteLine("Prepare the upload options with more metadata");
             var options = new GridFSUploadOptions()
@@ -51,7 +51,7 @@ namespace MongoDBGridFS
             Console.WriteLine("Uploaded file Id: " + id.ToString());
         }
 
-        public static async Task DownloadFile()
+        public static async Task DownloadFileAsBytesByName(string FileName)
 
         {
             var filter = Builders<GridFSFileInfo<ObjectId>>
@@ -59,10 +59,51 @@ namespace MongoDBGridFS
 
             var searchResult = await _gridFSBucket.FindAsync(filter);
             var fileEntry = searchResult.FirstOrDefault();
-            byte[] content = await _gridFSBucket.DownloadAsBytesAsync(fileEntry.Id);
+            if(fileEntry != null)
+            { 
+                byte[] content = await _gridFSBucket.DownloadAsBytesAsync(fileEntry.Id);
+                File.WriteAllBytes(DownloadPath + "/" + fileEntry.Filename, content);
+            }
+            else
+            {
+                Console.WriteLine("Cannot ginf file: '" + FileName + "'");
+            }
+        }
 
-            File.WriteAllBytes(DownloadPath + "/sample2.pdf", content);
+        public static async Task DownloadFileToStreamByName(string FileName)
 
+        {
+            var filter = Builders<GridFSFileInfo<ObjectId>>
+                                             .Filter.Eq(x => x.Filename, FileName);
+
+            var searchResult = await _gridFSBucket.FindAsync(filter);
+            var fileEntry = searchResult.FirstOrDefault();
+            if (fileEntry != null)
+            { 
+                var file = DownloadPath + "/" + fileEntry.Filename;
+                using Stream fs = new FileStream(file, FileMode.CreateNew, FileAccess.Write);
+                await _gridFSBucket.DownloadToStreamAsync(fileEntry.Id, fs);
+                fs.Close();
+            }
+            else
+            {
+                Console.WriteLine("Cannot ginf file: '" + FileName + "'");
+            }
+        }
+
+        public static async Task DownloadFileToStreamById(ObjectId Id)
+
+        {
+            var filter = Builders<GridFSFileInfo<ObjectId>>
+                                            .Filter.Eq(x => x.Id, Id);
+
+            var searchResult = await _gridFSBucket.FindAsync(filter);
+            var fileEntry = searchResult.FirstOrDefault();
+
+            var file = DownloadPath + "/" + fileEntry.Filename;
+            using Stream fs = new FileStream(file, FileMode.CreateNew, FileAccess.Write);
+            await _gridFSBucket.DownloadToStreamAsync(Id, fs);
+            fs.Close();
         }
 
         static void Main(string[] args)
@@ -83,11 +124,9 @@ namespace MongoDBGridFS
                 ReadPreference = ReadPreference.Secondary
             });
 
-            //Console.WriteLine("Call to upload the file from upload folder");
-            //UploadFileFromStream();
-            
             Console.WriteLine("Call to download a file from GridFS");
-            await DownloadFile();
+            await DownloadFileToStreamById(new ObjectId("61b23f03db04ab651a76ca16"));
+            Console.WriteLine("Done...press any key to exit.");
             Console.ReadKey();
         }
     }
